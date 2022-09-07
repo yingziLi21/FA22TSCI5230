@@ -51,15 +51,21 @@ download.file(InputData,destfile = ZippedData)
 UnzippedData <- unzip(ZippedData,exdir= "data" ) %>%
 grep ("gz",., value = TRUE)
 
-TableNames <- path_ext_remove(UnzippedData)  %>% path_ext_remove() %>% path_ext_remove()
+TableNames <- unzip(ZippedData, exdir = "data")%>%
+  grep('gz', ., value = TRUE)%>%
+  basename()%>%
+  fs::path_ext_remove()%>%
+  fs::path_ext_remove()
 # for (ii in seq_along(TableNames)){
 #   assign(TableNames[ii], import(UnzippedData[ii]), format ='CSV'));
 
-mapply(function(xx,yy)
+Junk <- mapply(function(xx,yy)
   assign(xx,import(yy,format = 'CSV'),inherits = TRUE),TableNames,UnzippedData)
 
-save(list = TableNames,file='data.R.rdata');
-if(!file.exists(ZippedData)) {download.file(InputData, destfile = ZippedData)}
+save(list = TableNames,file='data.R.rdata')
+
+
+#if(!file.exists(ZippedData)) {download.file(InputData, destfile = ZippedData)}
 
 # %>%
 
