@@ -36,50 +36,81 @@ library(dplyr); #add dplyr library
 options(max.print=42);
 panderOptions('table.split.table',Inf); panderOptions('table.split.cells',Inf);
 
-# loaddata ----
+# load data ----
 
-if(!file.exists("data.R.rdata")) {system("R -f Data.R")}
+if(!file.exists("working_script.rdata")){
+  system("R -f data.R")
+}
 
 load("data.R.rdata")
+
 #View(patients)
-#View(admissions)
+head(patients)
 
-# Section 2
-
-# Introduction to ggplt
-ggplot(data=patients,aes(x=anchor_age, fill=gender))+
-  geom_histogram()+
+##plotting using ggplot
+ggplot(data = patients, aes(x = anchor_age, fill = gender))+
+  geom_histogram() +
   geom_vline(xintercept = 65)
 
 table(patients$gender)
-nrow(patients)
-unique(patients$subject_id)
-length(unique(patients$subject_id))
+#check for duplicates in the subject_id
 
-# Introduction to dplyr
-Demographics<- group_by(admissions,subject_id) %>%
-  mutate(los=difftime(dischtime, admittime)) %>%
-  summarise(admits=n(),
-            ethnic= length(unique(ethnicity)),
-            ethnicity_combo= paste(sort(unique(ethnicity)),collapse = "+"),
-            #language0=length(unique(language)),
-            #language_combo=paste(sort(unique(language)),collapse = "+"),
-            #language=tail(language,1))
+#aggregating data: data structures
 
-            dod=max(deathtime, na.rm=TRUE),
-            los=median(los),
-            numED_length(na.omit(edregtime)))
+Demographics <- group_by(admissions, subject_id)%>%
+  mutate(los = difftime(dischtime, admittime))%>%
+  summarise(admits = n(),
+            ethnic = length(unique(ethnicity)),
+            ethnicity_combo = paste(sort(unique(ethnicity)), collapse = ":"),
+            # language0 <- length(unique(language)),
+            # language_combo <- paste(sort(unique(language)), collapse = ":")
+            language = tail(language, 1),
+            dod = max(deathtime, na.rm = TRUE),
+            los = median(los),
+            numED = length(na.omit(edregtime)))
 
-#create a column "admits"
+ggplot(data = Demographics, aes(x = admits)) +
+  geom_histogram(bins = 40)
 
-ggplot(data = Demographics, aes(x=admits))+geom_histogram()
-#distribution of admits
-
-#subset dataframes in dplyr
-subset(Demographics, ethnicity>1)
 table(admissions$ethnicity)
-table(Demographics, language0>1)
-table(admissions$language)
+
+#join admission and patients df
+intersect(names(Demographics), names(patients))
+Demographics$subject_id
+patients$subject_id
+setdiff(Demographics$subject_id, patients$subject_id)
+setdiff(patients$subject_id,Demographics$subject_id)
+setdiff(Demographics$dod, patients$dod)
+
+
+Demographics1<- left_join(Demographics, select(patients, -dod), by=c("subject_id"))
+
+# Mapping the variables.
+
+# build list of keywords
+kw_abx <- c("vanco", "zosyn", "piperacillin", "tazobactam", "cefepime", "meropenam", "ertapenem", "carbapenem", "levofloxacin")
+kw_lab <- c("creatinine")
+kw_aki <- c("acute renal failure", "acute kidney injury", "acute kidney failure", "acute kidney", "acute renal insufficiency")
+kw_aki_pp <- c("postpartum", "labor and delivery")
+
+# search for those keywords in the tables to find the full label names
+# remove post partum from aki in last line here
+# may need to remove some of the lab labels as well (pending)
+label_abx <- grep(paste0(kw_abx, collapse = '|'), d_items$label, ignore.case = T, value = T, invert = F)
+label_lab <- grep(paste0(kw_lab, collapse = '|'), d_labitems$label, ignore.case = T, value = T, invert = F)
+label_aki <- grep(paste0(kw_aki, collapse = '|'), d_icd_diagnoses$long_title, ignore.case = T, value = T, invert = F)
+label_aki <- grep(paste0(kw_aki_pp, collapse = '|'), label_aki, ignore.case = T, value = T, invert = T)
+
+# use dplyr filter to make tables with the item_id for the keywords above
+item_ids_abx <- d_items %>% filter(label %in% label_abx)
+item_ids_lab <- d_labitems %>% filter(label %in% label_lab)
+item_ids_aki <- d_icd_diagnoses %>% filter(long_title %in% label_aki)
+Akidiagnoses_icd<- subset(diagnoses_icd,grepl("^548|N17",icd_code))
+Antibiotics <- subset (item_ids_abx, category=="Antibiotics") %>% left_join(inputevents,by="itemid")
+
+
+
+
 
 
 
