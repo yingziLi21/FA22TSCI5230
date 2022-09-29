@@ -33,6 +33,8 @@ library(pander); # format tables
 library(printr); # set limit on number of lines printed
 library(broom); # allows to give clean dataset
 library(dplyr); #add dplyr library
+library(tidyr);
+library(purrr);
 
 options(max.print=42);
 panderOptions('table.split.table',Inf); panderOptions('table.split.cells',Inf);
@@ -130,7 +132,53 @@ grepl('Zosyn', Antibiotics$label)
 group_by(Antibiotics_Groupings,Vanc,Zosyn,Other)%>%
   summarise(N=n())
 
-#Vanc&Zosyn&!Other~'Vanc' exposure2 variable
+#Vanc&Zosyn&!Other~'Vanc' exposure2 variablead
+
+#9.28#
+
+admissions_scaffold<- admissions %>% select(hadm_id, admittime, dischtime) %>%
+transmute(hadm_id= hadm_id,
+          ip_date= map2(as.Date(admittime), as.Date(dischtime),seq,by="1 day"))%>%
+    unnest(ip_date)
+
+Antibiotics_dates<- Antibiotics %>%
+  transmute(hadm_id = hadm_id,
+            group=case_when( "Vancomycin" == label ~ "Van",
+            grepl("Piperacillin", label) ~ "Zosyn",
+            TRUE ~ "Other"),
+            starttime= starttime,
+            endtime= endtime) %>% unique() %>%
+
+ subset(!is.na(starttime) & !is.na(endtime)) %>%
+  transmute (hadm_id = hadm_id,
+            ip_date = map2(as.Date(starttime), as.Date(endtime), seq, by="1 day"),
+            group=group) %>%
+unnest(ip_date)
+
+Antibiotics_dates<- split(Antibiotics_dates, Antibiotics_dates$group)
+
+## combine multiple variables
+Antibiotics_dates <- sapply(names(Antibiotics_dates),
+                           function(xx){names(Antibiotics_dates[[xx]])[3] <- xx
+                            Antibiotics_dates [[xx]]}, simplify = FALSE) %>%
+  Reduce (left_join, ., admissions_scaffold)
+                  #browser()
+
+mutate(Antibiotics_dates,
+       across(all_of(c("other", "Vanc", "Zosyn")), -coalesce(.x, "")),
+       Exposure = paste(Vanc, Zosyn, Other)
+) %>% View()
+
+select(hadm_id, Exposure) %>% unique() %>%
+  pull(Exposure) %>% table()
+
+
+
+
+
+
+
+
 
 
 
