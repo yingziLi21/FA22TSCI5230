@@ -164,16 +164,16 @@ Antibiotics_dates <- sapply(names(Antibiotics_dates),
   Reduce (left_join, ., admissions_scaffold)
                   #browser()
 
-mutate(Antibiotics_dates,
-       across(all_of(c("other", "Vanc", "Zosyn")), -coalesce(.x, "")),
-       Exposure = paste(Vanc, Zosyn, Other)
-) %>% View()
+mutate(Antibiotics_dates, across(all_of(c('Other', 'Vanc', 'Zosyn')),~coalesce(.x,'')),
+       Exposure = paste(Vanc, Zosyn, Other))%>%
+  select(hadm_id, Exposure)%>%
+  unique()%>%
+  pull(Exposure)%>%
+  table()
 
-select(hadm_id, Exposure) %>% unique() %>%
-  pull(Exposure) %>% table()
-
-
-
+group_by(Antibiotics_Groupings, Vanc, Zosyn, Other) %>%
+  summarise(N=n())
+grepl("Zosyn", Antibiotics$label)
 
 
 
