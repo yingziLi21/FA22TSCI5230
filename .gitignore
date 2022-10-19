@@ -53,3 +53,5 @@ local.config.R
 *.xlsx
 Data
 .RDataTmp
+local_config.R
+
