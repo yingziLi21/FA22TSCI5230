@@ -1,4 +1,3 @@
-install.packages("RPostgres")
 library(DBI)
 #DBI is a generic database accessing tool
 
