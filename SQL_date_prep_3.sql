@@ -2,6 +2,7 @@
 create table YL_admissions as select * from admissions;
 create table YL_transfers as select * from transfers;*/
 
+
 /*CREATE TABLE YL_demographics as
 SELECT
   subject_id,
@@ -58,14 +59,16 @@ From d_labitems;
 CREATE Table yl_labevents AS
 select *
 From labevents;*/
-
-/*WITH q0 as
+Drop table yl_Antibiotic_Cr;
+Create table yl_Antibiotic_Cr AS
+WITH q0 as
 (select 
 GENERATE_SERIES(MIN(admittime), MAX(dischtime),INTERVAL '1 DAY') AS day
 from yl_admissions)
 , q1 AS
 (SELECT hadm_id, day::DATE
 FROM q0 INNER JOIN yl_admissions as adm ON q0.day BETWEEN adm.admittime::DATE AND adm.dischtime::date)
+
 , q2 AS
 (SELECT hadm_id, item.abbreviation, starttime::DATE, endtime::DATE
 from yl_d_items AS item
@@ -91,21 +94,50 @@ SUM(CASE WHEN abbreviation Not LIKE '%Zosyn%' AND abbreviation
 from q3
 group by hadm_id, day)
 
-SELECT *,
+,q5 AS (SELECT
+      AVG(cast(value AS numeric))  
+	      OVER(Partition By hadm_id, charttime::date) AS AverageCr,
+      first_value(cast(value AS numeric))
+		   OVER(Partition by hadm_id, charttime::date order by charttime Desc) AS LastCr,
+       hadm_id,
+       charttime,
+	   cast(value AS numeric) AS value,
+	   row_number()	OVER (Partition by hadm_id, charttime::date order by charttime),
+	   flag
+     
+FROM yl_dlabitems AS items
+INNER JOIN yl_labevents AS lab
+ON items.itemid = lab.itemid
+WHERE label LIKE '%reatinine%'
+AND fluid = 'Blood'
+	  ORDER BY hadm_id,charttime)
+	  
+, q6 AS
+(SELECT 
+ avg(value) AS AverageCr,
+ max(value) AS MaxCr,
+ max(LastCr) AS LastCr,
+ hadm_id,
+ charttime::date AS charttime,
+ sum(CASE WHEN flag is not null THEN 1 ELSE 0 END) AS AlnormalCount	 
+ From q5
+group by hadm_id, charttime::date)
+
+SELECT q4.*, AverageCr, MaxCr, alnormalCount,
 CASE 
-WHEN vanc >0 and zosyn >0 THEN 'Vanc&Zosyn'
-WHEN vanc >0 and zosyn >0 THEN 'Vanc&Other'
+WHEN vanc >0 AND zosyn >0 THEN 'Vanc&Zosyn'
+WHEN vanc >0 AND zosyn >0 THEN 'Vanc&Other'
 WHEN vanc >0 THEN 'Vanc'
 WHEN zosyn>0 OR other >0 THEN 'Other'
 WHEN vanc+zosyn+other=0 THEN 'None'
 ELSE 'Underfined' END as Antibiotic 
-FROM q4*/
+FROM q4
 
-SELECT *
-FROM yl_dlabitems AS items INNER JOIN yl_labevents AS lab
-ON items.itemid=lab.itemid
-WHERE label like '%reatinine%'
-AND fluid='Blood'
+LEFT JOIN q6 ON q4.hadm_id=cast(q6.hadm_id AS bigint)
+		   AND q4.day=q6.charttime
+		 
+
+ 
 
 
 
