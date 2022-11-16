@@ -39,6 +39,7 @@ library(table1);
 
 
 
+
 options(max.print=42);
 panderOptions('table.split.table',Inf); panderOptions('table.split.cells',Inf);
 

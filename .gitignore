@@ -54,4 +54,4 @@ local.config.R
 Data
 .RDataTmp
 local_config.R
-
+data.pickle
